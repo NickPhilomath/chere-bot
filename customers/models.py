@@ -10,6 +10,7 @@ class LanguageType(models.IntegerChoices):
 
 class Customer(models.Model):
     telegram_id = models.BigIntegerField(unique=True)
+    phone = models.CharField(max_length=14)
     name = models.CharField(max_length=255)
     is_company = models.BooleanField(default=False)
     lang = models.PositiveSmallIntegerField(

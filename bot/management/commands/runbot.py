@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand, CommandError
 
-from bot.main import main
+from run_polling import run_polling
 
 class Command(BaseCommand):
     help = 'Describe your command here'
@@ -11,7 +11,7 @@ class Command(BaseCommand):
     #     parser.add_argument('--optional_arg', type=int, help='Optional argument description', default=42)
 
     def handle(self, *args, **options):
-        main()
+        run_polling()
         # arg1 = options['arg1']
         # optional_arg = options['optional_arg']
 
