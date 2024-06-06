@@ -1,4 +1,4 @@
-import os, django
+import os, django, asyncio
 from telegram import Update
 from telegram.ext import Application
 

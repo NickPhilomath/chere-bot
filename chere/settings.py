@@ -7,6 +7,7 @@ load_dotenv()
 
 # environment variable from .env file
 BOT_TOKEN = os.getenv('BOT_TOKEN')
+# DJANGO_ALLOW_ASYNC_UNSAFE = True
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
