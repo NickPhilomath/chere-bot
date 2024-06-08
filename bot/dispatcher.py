@@ -2,9 +2,9 @@ from asgiref.sync import sync_to_async
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import filters, ContextTypes, Application, CommandHandler, CallbackQueryHandler, MessageHandler, ConversationHandler
 
-from .models import Customer, Product
+from .models import Customer, Product, Order
 
-PHONE = range(1)
+PHONE, ORDER, ORDER_AMOUNT = range(3)
 
 M_WELCOME = 'Welcome to our Company'
 M_CHOOSE_LANGUAGE = 'Please choose a language'
@@ -58,7 +58,7 @@ async def order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         await update.message.reply_text("not registered", reply_markup=reply_markup)
         return PHONE
 
-    curr_product_index = context.user_data.get("current_product", 0)
+    curr_product_index = context.user_data.get("curr_product_index", 0)
     
     products, count = await get_products()
 
@@ -66,31 +66,58 @@ async def order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         make_product_msg(products[curr_product_index]),
         reply_markup=make_product_reply_markup(curr_product_index, count)
     )
-    return ConversationHandler.END
+    return ORDER_AMOUNT
 
 
 async def order_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     print("query****************")
-    print(update)
+    # print(update.callback_query)
 
     query = update.callback_query
-    curr_product_index = context.user_data.get("current_product", 0)
+    curr_product_index = context.user_data.get("curr_product_index", 0)
+    products, count = await get_products()
 
     await query.answer()
+
+    # if user selects the product, next step is asking amount
+    if query.data == 'select':
+        context.user_data['current_product_id'] = products[curr_product_index].id
+        await query.edit_message_text("amount?")
+        return
 
     if query.data == 'next':
         curr_product_index += 1
     elif query.data == 'prev':
         curr_product_index -= 1
 
-    context.user_data['current_product'] = curr_product_index
+    context.user_data['curr_product_index'] = curr_product_index
 
-    products, count = await get_products()
 
     await query.edit_message_text(
         make_product_msg(products[curr_product_index]),
         reply_markup=make_product_reply_markup(curr_product_index, count)
     )
+
+
+async def order_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        amount = int(update.message.text)
+    except ValueError:
+        await update.message.reply_text("wrong input!!")
+        return ORDER_AMOUNT
+
+    current_product_id = context.user_data['current_product_id']
+
+    await sync_to_async(
+        Order.objects.create
+    )(
+        customer_id=1,
+        product_id=1,
+        amount=amount,
+    )
+
+    await update.message.reply_text("amout: " + update.message.text)
+    return ConversationHandler.END
 
 
 async def phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -114,6 +141,7 @@ async def phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         language = language_code if language_code in ['en', 'uz', 'ru'] else 'uz',
     )
     await update.message.reply_text(f'your phone number: {update.message.contact.phone_number}')
+    
     return ConversationHandler.END
 
 
@@ -126,7 +154,9 @@ def setup_application(app: Application):
             MessageHandler(filters.Regex(f'^({M_ORDER})$'), order)
         ],
         states={
-            PHONE: [MessageHandler(filters.CONTACT & ~filters.COMMAND, phone)]
+            # ORDER: [MessageHandler(filters.TEXT & ~filters.COMMAND, order)],
+            PHONE: [MessageHandler(filters.CONTACT & ~filters.COMMAND, phone)],
+            ORDER_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, order_amount)]
         },
         fallbacks=[]
     )
