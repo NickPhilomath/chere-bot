@@ -14,6 +14,26 @@ M_CONTACT = "📞 Operator bilan bog'lanish"
 M_SETTINGS = '⚙️ Settings'
 
 
+async def get_products():
+    products_raw = await sync_to_async(Product.objects.all)()
+    products = await sync_to_async(list)(products_raw)
+    return products, len(products) 
+
+def make_product_msg(product):
+    return f"{product.name} \n\n {product.description}"
+
+
+def make_product_reply_markup(index, count):
+    no_data_keyboard = InlineKeyboardButton("❌", callback_data="-1")
+    prev_keyboard = InlineKeyboardButton("⬅️ Oldingi", callback_data="prev") if index > 0 else no_data_keyboard
+    next_keyboard = InlineKeyboardButton("Keyingi ➡️", callback_data="next") if index < count-1 else no_data_keyboard
+    select_keyboard = InlineKeyboardButton("📥 Tanlash", callback_data="select")
+    keyboard = [
+        [prev_keyboard, select_keyboard, next_keyboard],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     language_code = update.message.from_user.language_code
 
@@ -31,53 +51,46 @@ async def order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user_tg_id = update.message.from_user.id
     is_registered_user = await sync_to_async(Customer.objects.filter(telegram_id=user_tg_id).exists)()
 
+    #  check if user previously registered
     if not is_registered_user:
         contact_button = KeyboardButton(text="please share your phone number", request_contact=True)
         reply_markup = ReplyKeyboardMarkup([[contact_button]], one_time_keyboard=True, resize_keyboard=True)
         await update.message.reply_text("not registered", reply_markup=reply_markup)
         return PHONE
+
+    curr_product_index = context.user_data.get("current_product", 0)
     
+    products, count = await get_products()
 
-    """Sends a message with three inline buttons attached."""
-    keyboard = [
-        [
-            InlineKeyboardButton("⬅️ Oldingi", callback_data="prev"),
-            InlineKeyboardButton("📥 Tanlash", callback_data="select"),
-            InlineKeyboardButton("Keyingi ➡️", callback_data="next"),
-        ],
-    ]
-
-    current_product_index = context.user_data.get("current_product", 0)
-    
-    products_raw = await sync_to_async(Product.objects.all)()
-    products = await sync_to_async(list)(products_raw)
-
-    current_product = products[current_product_index]
-
-
-    print("products: *****************")
-    print(products)
-    # # print(products)
-
-    reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        f"{current_product.name} \n\n {current_product.description}", 
-        reply_markup=reply_markup
+        make_product_msg(products[curr_product_index]),
+        reply_markup=make_product_reply_markup(curr_product_index, count)
     )
     return ConversationHandler.END
 
 
 async def order_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-
     print("query****************")
-    print(query)
+    print(update)
 
-    # CallbackQueries need to be answered, even if no notification to the user is needed
-    # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
+    query = update.callback_query
+    curr_product_index = context.user_data.get("current_product", 0)
+
     await query.answer()
 
-    await query.edit_message_text(text=f"Selected option: {query.data}")
+    if query.data == 'next':
+        curr_product_index += 1
+    elif query.data == 'prev':
+        curr_product_index -= 1
+
+    context.user_data['current_product'] = curr_product_index
+
+    products, count = await get_products()
+
+    await query.edit_message_text(
+        make_product_msg(products[curr_product_index]),
+        reply_markup=make_product_reply_markup(curr_product_index, count)
+    )
 
 
 async def phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
