@@ -4,7 +4,7 @@ from telegram.ext import filters, ContextTypes, Application, CommandHandler, Cal
 
 from .models import Customer, Product, Order
 
-PHONE, ORDER, ORDER_AMOUNT, ORDER_CONFIRM = range(4)
+REGISTER_PHONE, REGISTER_LOCATION, ORDER, ORDER_AMOUNT, ORDER_CONFIRM = range(5)
 
 M_WELCOME = 'Welcome to our Company'
 M_CHOOSE_LANGUAGE = 'Please choose a language'
@@ -58,7 +58,7 @@ async def order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         contact_button = KeyboardButton(text="please share your phone number", request_contact=True)
         reply_markup = ReplyKeyboardMarkup([[contact_button]], one_time_keyboard=True, resize_keyboard=True)
         await update.message.reply_text("not registered", reply_markup=reply_markup)
-        return PHONE
+        return REGISTER_PHONE
 
     curr_product_index = context.user_data.get("curr_product_index", 0)
     
@@ -146,12 +146,12 @@ async def order_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
-async def phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def register_phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     print('-- contact: ')
     user_tg_id = update.message.from_user.id
     if not user_tg_id == update.message.contact.user_id:
         await update.message.reply_text("this is not yours!")
-        return PHONE
+        return REGISTER_PHONE
     
     # register new user
     language_code = update.message.from_user.language_code
@@ -168,6 +168,12 @@ async def phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     )
     await update.message.reply_text(f'your phone number: {update.message.contact.phone_number}')
     
+    return REGISTER_LOCATION
+
+
+async def register_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    print("location: ")
+    print(update.message.location.latitude, update.message.location.longitude)
     return ConversationHandler.END
 
 
@@ -181,7 +187,8 @@ def setup_application(app: Application):
         ],
         states={
             # ORDER: [MessageHandler(filters.TEXT & ~filters.COMMAND, order)],
-            PHONE: [MessageHandler(filters.CONTACT & ~filters.COMMAND, phone)],
+            REGISTER_PHONE: [MessageHandler(filters.CONTACT & ~filters.COMMAND, register_phone)],
+            REGISTER_LOCATION: [MessageHandler(filters.LOCATION & ~filters.COMMAND, register_location)],
             ORDER_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, order_amount)],
             ORDER_CONFIRM: [MessageHandler(filters.Regex(f'^({M_ORDER_CONFIRM})$'), order_confirm)],
         },
