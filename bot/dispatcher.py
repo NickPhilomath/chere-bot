@@ -4,14 +4,16 @@ from telegram.ext import filters, ContextTypes, Application, CommandHandler, Cal
 
 from .models import Customer, Product, Order
 
-PHONE, ORDER, ORDER_AMOUNT = range(3)
+PHONE, ORDER, ORDER_AMOUNT, ORDER_CONFIRM = range(4)
 
 M_WELCOME = 'Welcome to our Company'
 M_CHOOSE_LANGUAGE = 'Please choose a language'
 M_ORDER = '🚛 Buyurtma qilish'
-M_ABOUT_COMPANY = '🏢 Kompaniya haqida'
+M_ABOUT_COMPANY = '📥 Buyurtmalarim'
 M_CONTACT = "📞 Operator bilan bog'lanish"
-M_SETTINGS = '⚙️ Settings'
+M_SETTINGS = '⚙️ Sozlamalar'
+M_ORDER_CONFIRM = "Tasdiqlash"
+M_ORDER_CANCEL = "Bekor qilish"
 
 
 async def get_products():
@@ -38,8 +40,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     language_code = update.message.from_user.language_code
 
     reply_keyboard = [
-        [M_ORDER, M_CONTACT],
-        [M_ABOUT_COMPANY, M_SETTINGS],
+        [M_ORDER, M_ABOUT_COMPANY],
+        [M_CONTACT, M_SETTINGS],
     ]
     await update.message.reply_text(
         M_WELCOME,
@@ -70,7 +72,7 @@ async def order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 
 async def order_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    print("query****************")
+    # print("query****************")
     # print(update.callback_query)
 
     query = update.callback_query
@@ -102,21 +104,45 @@ async def order_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 async def order_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         amount = int(update.message.text)
+        context.user_data['product_amount'] = amount
     except ValueError:
         await update.message.reply_text("wrong input!!")
         return ORDER_AMOUNT
+    
+    reply_markup = [
+        [M_ORDER_CONFIRM],
+        [M_ORDER_CANCEL],
+    ]
 
-    current_product_id = context.user_data['current_product_id']
+    await update.message.reply_text(
+        "amout: " + update.message.text,
+        reply_markup=ReplyKeyboardMarkup(reply_markup, resize_keyboard=True)    
+    )
+    return ORDER_CONFIRM
+
+
+async def order_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # get customer id
+    user_tg_id = update.message.from_user.id
+    customer = await sync_to_async(
+        Customer.objects.get
+    )(
+        telegram_id=user_tg_id
+    )
+    
+    
+    product_id = context.user_data['current_product_id']
+    product_amount = context.user_data['product_amount']
 
     await sync_to_async(
         Order.objects.create
     )(
-        customer_id=1,
-        product_id=1,
-        amount=amount,
+        customer=customer,
+        product_id=product_id,
+        amount=product_amount,
     )
 
-    await update.message.reply_text("amout: " + update.message.text)
+    await update.message.reply_text("you order successfully confirmed.")
     return ConversationHandler.END
 
 
@@ -156,7 +182,8 @@ def setup_application(app: Application):
         states={
             # ORDER: [MessageHandler(filters.TEXT & ~filters.COMMAND, order)],
             PHONE: [MessageHandler(filters.CONTACT & ~filters.COMMAND, phone)],
-            ORDER_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, order_amount)]
+            ORDER_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, order_amount)],
+            ORDER_CONFIRM: [MessageHandler(filters.Regex(f'^({M_ORDER_CONFIRM})$'), order_confirm)],
         },
         fallbacks=[]
     )
