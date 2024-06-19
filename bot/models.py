@@ -17,8 +17,8 @@ class Customer(models.Model):
         default=LanguageCodes.UZ
     )
     # location
-    latitude = models.DecimalField(max_digits=12, decimal_places=9)
-    longitude = models.DecimalField(max_digits=12, decimal_places=9)
+    latitude = models.DecimalField(max_digits=12, decimal_places=9, default='0.0')
+    longitude = models.DecimalField(max_digits=12, decimal_places=9, default='0.0')
 
     def __str__(self) -> str:
         return self.name
