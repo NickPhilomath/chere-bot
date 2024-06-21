@@ -1,5 +1,5 @@
 from asgiref.sync import sync_to_async
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup, InputFile
 from telegram.ext import filters, ContextTypes, Application, CommandHandler, CallbackQueryHandler, MessageHandler, ConversationHandler
 
 from .translation import get_text as t
@@ -7,6 +7,7 @@ from .models import Customer, Product, Order
 
 REGISTER_PHONE, REGISTER_LOCATION, ORDER, ORDER_AMOUNT, ORDER_CONFIRM = range(5)
 
+MAX_COLUMN_COUNT = 4
 
 
 async def get_products():
@@ -17,16 +18,39 @@ async def get_products():
 def make_product_msg(product):
     return f"{product.name} \n\n {product.description}"
 
+def re_arrange(arr, max_count):
+    result = []
+    for i in range(0, len(arr), max_count):
+        result.append(arr[i:i + max_count])
+    return result
 
-def make_product_reply_markup(index, count):
-    no_data_keyboard = InlineKeyboardButton("❌", callback_data="-1")
-    prev_keyboard = InlineKeyboardButton("⬅️ Oldingi", callback_data="prev") if index > 0 else no_data_keyboard
-    next_keyboard = InlineKeyboardButton("Keyingi ➡️", callback_data="next") if index < count-1 else no_data_keyboard
-    select_keyboard = InlineKeyboardButton("📥 Tanlash", callback_data="select")
-    keyboard = [
-        [prev_keyboard, select_keyboard, next_keyboard],
-    ]
+def make_product_reply_markup(products, count):
+    keyboard = []
+
+    for product in products:
+        keyboard.append(
+            InlineKeyboardButton(
+                product.name,
+                callback_data=product.id,
+            )
+        )
+
+    keyboard = re_arrange(keyboard, MAX_COLUMN_COUNT)
+
     return InlineKeyboardMarkup(keyboard)
+
+
+
+
+# def make_product_reply_markup(index, count):
+#     no_data_keyboard = InlineKeyboardButton("❌", callback_data="-1")
+#     prev_keyboard = InlineKeyboardButton("⬅️ Oldingi", callback_data="prev") if index > 0 else no_data_keyboard
+#     next_keyboard = InlineKeyboardButton("Keyingi ➡️", callback_data="next") if index < count-1 else no_data_keyboard
+#     select_keyboard = InlineKeyboardButton("📥 Tanlash", callback_data="select")
+#     keyboard = [
+#         [prev_keyboard, select_keyboard, next_keyboard],
+#     ]
+#     return InlineKeyboardMarkup(keyboard)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -53,13 +77,18 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     curr_product_index = context.user_data.get("curr_product_index", 0)
-    
     products, count = await get_products()
-
-    await update.message.reply_text(
-        make_product_msg(products[curr_product_index]),
-        reply_markup=make_product_reply_markup(curr_product_index, count)
+    
+    image_path = 'media/overview.jpg'
+    await update.message.reply_photo(
+        photo=open(image_path, 'rb'),
+        caption="this is caption",
+        reply_markup=make_product_reply_markup(products, count)
     )
+    # await update.message.reply_text(
+    #     make_product_msg(products[curr_product_index]),
+    #     reply_markup=make_product_reply_markup(curr_product_index, count)
+    # )
     return ORDER_AMOUNT
 
 

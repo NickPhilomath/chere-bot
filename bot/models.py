@@ -28,6 +28,7 @@ class Product(models.Model):
     name = models.CharField(max_length=128)
     description = models.TextField()
     price = models.IntegerField()
+    image = models.ImageField(null=True, upload_to='products/')
 
     def __str__(self) -> str:
         return self.name
