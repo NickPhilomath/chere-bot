@@ -1,6 +1,10 @@
+from telegram.ext import Application
+from telegram import Update
 from django.core.management.base import BaseCommand, CommandError
 
-from run_polling import run_polling
+from chere.settings import BOT_TOKEN
+from bot.dispatcher import setup_application
+
 
 class Command(BaseCommand):
     help = 'Describe your command here'
@@ -11,14 +15,8 @@ class Command(BaseCommand):
     #     parser.add_argument('--optional_arg', type=int, help='Optional argument description', default=42)
 
     def handle(self, *args, **options):
-        run_polling()
-        # arg1 = options['arg1']
-        # optional_arg = options['optional_arg']
-
-        # # Implement your custom command logic here
-        # self.stdout.write(self.style.SUCCESS(f'Argument 1: {arg1}'))
-        # self.stdout.write(self.style.SUCCESS(f'Optional Argument: {optional_arg}'))
-
-        # You can raise a CommandError to indicate something went wrong
-        # if some_condition:
-        #     raise CommandError('An error occurred')
+        print("-- Aplication started.")
+        # print("-- Using token: ", BOT_TOKEN)
+        application = Application.builder().token(BOT_TOKEN).build()
+        setup_application(application)
+        application.run_polling(allowed_updates=Update.ALL_TYPES)
