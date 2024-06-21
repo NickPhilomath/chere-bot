@@ -2,18 +2,11 @@ from asgiref.sync import sync_to_async
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import filters, ContextTypes, Application, CommandHandler, CallbackQueryHandler, MessageHandler, ConversationHandler
 
+from .translation import get_text as t
 from .models import Customer, Product, Order
 
 REGISTER_PHONE, REGISTER_LOCATION, ORDER, ORDER_AMOUNT, ORDER_CONFIRM = range(5)
 
-M_WELCOME = 'Welcome to our Company'
-M_CHOOSE_LANGUAGE = 'Please choose a language'
-M_ORDER = '🚛 Buyurtma qilish'
-M_ABOUT_COMPANY = '📥 Buyurtmalarim'
-M_CONTACT = "📞 Operator bilan bog'lanish"
-M_SETTINGS = '⚙️ Sozlamalar'
-M_ORDER_CONFIRM = "Tasdiqlash"
-M_ORDER_CANCEL = "Bekor qilish"
 
 
 async def get_products():
@@ -37,19 +30,7 @@ def make_product_reply_markup(index, count):
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    language_code = update.message.from_user.language_code
-
-    reply_keyboard = [
-        [M_ORDER, M_ABOUT_COMPANY],
-        [M_CONTACT, M_SETTINGS],
-    ]
-    await update.message.reply_text(
-        M_WELCOME,
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True),
-    )
-
-
-async def order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    # language_code = update.message.from_user.language_code
     user_tg_id = update.message.from_user.id
     is_registered_user = await sync_to_async(Customer.objects.filter(telegram_id=user_tg_id).exists)()
 
@@ -60,6 +41,17 @@ async def order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         await update.message.reply_text("not registered", reply_markup=reply_markup)
         return REGISTER_PHONE
 
+    reply_keyboard = [
+        [t('order'), t('my_orders')],
+        [t('contact_operator'), t('settings')],
+    ]
+    await update.message.reply_text(
+        t('intro'),
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True),
+    )
+
+
+async def order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     curr_product_index = context.user_data.get("curr_product_index", 0)
     
     products, count = await get_products()
@@ -183,14 +175,14 @@ def setup_application(app: Application):
 
     order_conv_handler = ConversationHandler(
         entry_points=[
-            MessageHandler(filters.Regex(f'^({M_ORDER})$'), order)
+            MessageHandler(filters.Regex(f'^({t('order')})$'), order)
         ],
         states={
             # ORDER: [MessageHandler(filters.TEXT & ~filters.COMMAND, order)],
             REGISTER_PHONE: [MessageHandler(filters.CONTACT & ~filters.COMMAND, register_phone)],
             REGISTER_LOCATION: [MessageHandler(filters.LOCATION & ~filters.COMMAND, register_location)],
             ORDER_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, order_amount)],
-            ORDER_CONFIRM: [MessageHandler(filters.Regex(f'^({M_ORDER_CONFIRM})$'), order_confirm)],
+            ORDER_CONFIRM: [MessageHandler(filters.Regex(f'^({t('confirm_order')})$'), order_confirm)],
         },
         fallbacks=[]
     )
